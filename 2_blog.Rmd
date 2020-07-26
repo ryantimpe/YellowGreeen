@@ -1,0 +1,297 @@
+---
+title: "The difference between yellow-green & green-yellow"
+author: "Ryan Timpe"
+date: "7/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE)
+
+gycodes = list(
+  green       = "#00ff00",
+  "yellow-green" = "#9acd32",
+  "green-yellow" = "#adff2f",
+  yellow      = "#ffff00"
+)
+```
+
+## Introduction
+
+According to a [Twitter bot](https://twitter.com/DeletedWiki) that tracks deleted article titles, Wikipedia removed an article last week called "The difference between yellow-green and green-yellow." 
+
+Either Wikipedia was grossly negligent in deleting this article, or the editorial standards at ryantimpe.com are lower than at Wikipedia. Either way, I will boldly go where Wikipedia refused and write this article myself.
+
+## The Goal
+
+Using the tools I know (R, always R), and considering that I know almost nothing about the physics and perception of color (or the English language), can I quantify the difference between yellow-green and green-yellow?
+
+## tl;dr
+<span style = 'background-color:#FFFF99'>
+Green-yellow is the true hybrid color of green and yellow. The 'green' in 'green-yellow' is more than an adverb: it is the Thelma to yellow's Louise.
+
+Yellow-green on the other hand is a yellow-ish tint of a shade of green already far removed from true green. 
+</span>
+
+But let's start in the beginning...
+
+## Methodology
+
+### Knowns
+
+For this analysis, assume yellow-green and green-yellow refer to two distinct colors, where the first word is a descriptor of the second:
+
+- yellow-green is a shade of green with a yellow tint, or [according to Wikipedia](https://en.wikipedia.org/wiki/Chartreuse_(color)#Yellow-green), a dull medium shade of chartreuse[^goose]. Yellow-green has the hex code `#9acd32`.
+
+- green-yellow is a shade of yellow with a green tint[^wiki]. Green-yellow has the hex code `#adff2f`.
+
+- For completeness I define green as hex code `#00ff00` (true, super bright green) and yellow as hex code `#ffff00` (true, super bright yellow).
+
+[^goose]: Also according to the Wikipedia entry, it's also the color of French goose droppings. `r emo::ji("bird")`
+
+[^wiki]: To add to the confusion, Wikipedia also list this shade of yellow on it's [shades of green](https://en.wikipedia.org/wiki/Shades_of_green#Green-yellow) entry. 
+
+
+### Tools
+
+I use a few R packages to make this analysis easier.
+
+- [{farver}](https://github.com/thomasp85/farver) by [Thomas Lin Pedersen](https://twitter.com/thomasp85) provides tools to translate & compare colors in different color spaces.
+
+- [{tidyverse}](https://www.tidyverse.org/), of course. I make an effort try out some of the new {dplyr} 1.0 features. I also use some functions from {tidyr}, {purrr}, and {stringr}.
+
+- [{rgl}](https://cran.r-project.org/web/packages/rgl/index.html) for 3D plotting and [{patchwork}](https://patchwork.data-imaginist.com/), also by Thomas Lin Pedersen, for organizing charts.
+
+## Color spaces
+
+The first challenge is defining & describing the colors. Hexcodes describe colors in `RGB` space, which describes the intensity of red, green, and blue light in the color. All 3 channels at max value (ff or 255) will result in white, all 3 set at 0 will result in black. Anywhere in between is a shade of grey. When you start changing the ratio between the 3 channels, you get colors. Our green, `#00ff00`, is only has the green channel turned on, while our yellow `#ffff00` has equal parts red and green at full brightness.
+
+Humans are not computers, however. Our eyes see colors slightly differently, so scientists have tried to come up with other ways to define colors. There are many different ways to [define color spaces](https://en.wikipedia.org/wiki/Color_space), and for this analysis I'll focus on two others.
+
+- HSL defines colors as a hue, saturation, and lightness value. 
+
+- [CIELAB (lab)](https://en.wikipedia.org/wiki/CIELAB_color_space) defines colors on a scale of `l` = white to black, `a` = green to red, & `b` = blue to yellow.
+
+## The numerical difference
+
+Converting the pair of hex codes for yellow-green and green-yellow into each of the color spaces results in three pairs of 3-dimensional coordinates. These coordinates quantify the differences between the colors.
+
+```{r create_coords_rgb, echo = TRUE}
+#Grab yellow-green and green-yellow from my list of colors
+gycodes[c("yellow-green", "green-yellow")] %>% 
+  unlist() %>% 
+  #Decode color converts the 2 hexcodes to a matrix of 2 rows...
+  #... and a column for each color channel
+  farver::decode_colour(to = "rgb")  %>% 
+  as.data.frame() %T>%
+  print() %>% 
+  mutate(color = row.names(.)) %>% 
+  select(color, everything()) %>% 
+  mutate(across(c(r, g, b), ~scales::percent(./(r+g+b), accuracy = 2))) %>% 
+  print()
+```
+
+In the `RGB` color space the values of the 3 channels are higher for green-yellow, making it the brighter of the two colors. The two colors have similar proportions of each channel, with slight variations. Yellow-green has more equal proportions of `R` and `G`... which would make yellow-green (which we define as green) the "yellow" color. That's odd. Green-yellow, the yellow color, has a higher proportion of green. Maybe this isn't the best way to compare the colors.
+
+```{r create_coords_hsl, echo = FALSE}
+#Grab yellow-green and green-yellow from my list of colors
+gycodes[c("yellow-green", "green-yellow")] %>% 
+  unlist() %>% 
+  #Decode color converts the 2 hexcodes to a data frame of 2 rows...
+  #... and a column for each color channel
+  farver::decode_colour(to = "hsl") %>% 
+  as.data.frame() %>% 
+  mutate(color = row.names(.)) %>% 
+  select(color, everything()) 
+```
+
+In the `HSL` color space, yellow-green has a lower value for hue, which means the color is closer to yellow than green-yellow. Interestingly, green-yellow is at 100% saturation, meaning it's more colorful than pale and slightly brighter than yellow-green.
+
+```{r create_coords_lab, echo = FALSE}
+#Grab yellow-green and green-yellow from my list of colors
+gycodes[c("yellow-green", "green-yellow")] %>% 
+  unlist() %>% 
+  #Decode color converts the 2 hexcodes to a data frame of 2 rows...
+  #... and a column for each color channel
+  farver::decode_colour(to = "lab") %>% 
+  as.data.frame() %>% 
+  mutate(color = row.names(.)) %>% 
+  select(color, everything()) 
+```
+
+In the `lab` color space, green-yellow has more light, is more green than red (and more green than yellow-green), and is more yellow than blue (and more yellow than yellow-green).
+
+## The literal difference
+
+The cool thing about math that people figured out a long time ago is that you can draw a line between two points... and we have two points. And if we draw a line, that line will have a center point. And since our two points are in a color space, that midpoint will have a color associated with it.
+
+So what's the middle color between yellow-green and green-yellow in each of the 3 spaces?
+
+```{r midpoint, warning=FALSE, fig.width=3, fig.height=3}
+c("rgb", "hsl", "lab") %>% 
+  purrr::map_chr(~{
+    gycodes[c("yellow-green", "green-yellow")] %>% 
+      unlist() %>% 
+      farver::decode_colour(to = .x) %>% 
+      #Throwback and keeping it as a matrix
+      t() %>% 
+      apply(1, mean) %>% 
+      matrix(ncol=3)%>% 
+      farver::encode_colour(from = .x) 
+  }) %>%
+  #One of the coolest helper functions in R
+  scales::show_col(ncol=3)
+```
+
+Almost the same color across each of the three color spaces. In each case, we get a shade of yellow-green! ... or is that a shade of green-yellow?
+
+## The crowd-sourced difference
+
+I posted the `RGB` version of this color, without the hex code, on Twitter and asked my 1,900 followers if they considered this color to be yellow-green or green-yellow. After an overwhelming response[^votes], the results were a statistical tie. 
+
+On this measure, the difference between yellow-green and green-yellow is an ambiguous color that is either one of those two, or neither of them.
+
+[^votes]: 51 votes. Less than 3% of my followers. Gonna have to assume 97% of my followers are bots. `r emo::ji("robot")`
+
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">VERY IMPORTANT POLL</p>&mdash; Ryan Timpe 🏳️‍🌈🦕 (@ryantimpe) <a href="https://twitter.com/ryantimpe/status/1284558552674250754?ref_src=twsrc%5Etfw">July 18, 2020</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+## The relative difference
+
+Another way to understand the difference between yellow-green and green-yellow is to compare them to their two namesake colors: green and yellow.
+
+The starting point again would be to measure the euclidean distance between each color with yellow and green. {farver} makes this easy.
+
+```{r compare_1}
+#Convert hex codes to rgb
+farver::decode_colour(unlist(gycodes)) %>% 
+  #Calculate the euclidean distance between each point
+  farver::compare_colour(from_space = "rgb") %>% 
+  round()
+```
+
+These results are super easy to visually understand. On the extreme end, we see the distance between green and yellow is 255, which we know is the toggled on `R` channel with yellow. We can also see that yellow-green is a distance of 123 from yellow and 169 from green, reaffirming our above conclusion that yellow-green is seems a bit more yellow. However, here we see that green-yellow is also more of a yellow color.
+
+Just like with there being different ways to define color space, this question is more complicated than just viewing the euclidean distance. There are other color matching methodologies that are designed to better relate to the human perception of color, like the CIE2000 and CMC methods. Let's see how these colors compare across multiple color spaces and methodologies.
+
+<details><summary>Click here for code & too many numbers </summary>
+
+```{r compare_2}
+gy_distances = function(space, method){
+  farver::decode_colour(unlist(gycodes)[c("green-yellow", "yellow-green")]) %>% 
+    farver::compare_colour(to = farver::decode_colour(unlist(gycodes)[c("green", "yellow")]),
+                           from_space = space,
+                           method = method) %>% 
+    as.data.frame() %>% 
+    mutate(target_color = rownames(.),
+           space = space, 
+           method = method) %>% 
+    select(space, method, target_color, everything())
+}
+
+crossing(space = c("rgb", "lab", "hsl"), 
+         method = c("euclidean", "cie2000", "cmc")) %>% 
+  purrr::pmap_dfr(gy_distances) %>% 
+  pivot_longer(c(green, yellow), names_to = "matched_color", values_to = "distance") %>% 
+  mutate(true_color = str_extract(target_color, "green$|yellow$"),
+         match = matched_color == true_color) %>% 
+  select(target_color, true_color, space, method, matched_color, distance, match) -> full_yq_dist
+
+full_yq_dist %>% 
+  select(-match, -true_color) %>% 
+  mutate(target_color = str_remove_all(target_color, "een|llow")) %>% 
+  pivot_wider(names_from = c(target_color, matched_color), names_sep = " | ",
+              values_from = distance) %>% 
+  knitr::kable(digits = 0, label = "Distance methods: Target color | Match color")
+```
+This table shows the distance between the each yellow-green & green-yellow with green & yellow across the different color spaces. I probably shouldn't average these two different color space distances together, but if I do...
+
+```{r}
+#Average distance... sketchy math tho
+full_yq_dist %>% 
+  group_by(target_color, matched_color) %>% 
+  summarize(across(distance, mean), .groups = "drop") %>% 
+  knitr::kable(digits = 0)
+
+```
+
+... we end up with this table. On average, green-yellow is much closer to yellow `r emo::ji("check")` and yellow-green is slightly closer to green `r emo::ji("check")`.
+
+</details>
+
+```{r compare_2_out}
+full_yq_dist %>% 
+  group_by(target_color, method, space) %>% 
+  slice_min(distance, n=1) %>% #Fancy new replacement for top_n()
+  ungroup() %>% 
+  select(-distance, -match) %>% 
+  #Pivot over space, but allow for scenario where color is equidistant to both Y and G
+  pivot_wider(names_from = "space", values_from = "matched_color", 
+              values_fn = function(x){if(length(x)==2){"both"}else{x}})
+```
+
+None of the three distance methods are able to classify both yellow-green and green-yellow as their base colors in each of the 3 color spaces. HSL space is interesting (but also kinda boring) as yellow-green and green-yellow are the *same distance* each from yellow and green in each of the methods. 
+
+The combination of `lab` space with `euclidean` matching is the only one to correctly classify both colors, so let's explore that one.
+
+## The plotted difference
+
+Since the data is 3D, I played around with making a 3D scatter plot in {rgl}, though it's a bit ugly. Additionally, I plot each of the 3 dimensions in pairs, suppressing the 3rd. Using {patchwork}, I can combine all four plots into one graphic.
+
+<details><summary>Click here for code</summary>
+
+```{r plotted_diff}
+plot_color_space_single = function(space, this_x, this_y){
+  farver::decode_colour(unlist(gycodes), to = space) %>% 
+    as.data.frame() %>% 
+    mutate(color_name = row.names(.),
+           hex = unlist(gycodes)) -> dc_space
+  
+  dc_space %>% 
+    ggplot(aes(x=.data[[this_x]], y=.data[[this_y]])) +
+    geom_line(data = dc_space %>% filter(color_name %in% c("green", "yellow")),
+              color = "#333333", size = 2) +
+    geom_point(color = "black", size = 4) +
+    geom_point(aes(color = hex), size = 3) +
+    scale_color_identity() +
+    ggrepel::geom_text_repel(aes(label = color_name), vjust=0, nudge_y = 3)
+}
+#will work for at least lab, hsl, rgb
+plot_color_space = function(space, image){
+  strsplit(space, "") %>% unlist() -> space_char
+  
+  image_plot <- ggplot() +
+    ggpubr::background_image(png::readPNG(image))
+  
+  list(
+    plot_color_space_single(space, space_char[1], space_char[2]),
+    plot_color_space_single(space, space_char[3], space_char[2]),
+    image_plot,
+    plot_color_space_single(space, space_char[3], space_char[1])
+  ) %>% 
+    patchwork::wrap_plots(design = "AB
+                                    CD")
+}
+```
+
+</details>
+
+```{r plotted_diff_out}
+plot_color_space("lab", "lab_3d.png")
+```
+
+While we know from the distance calculations that yellow-green is rightly closer to green in this space and green-yellow is closer to yellow, this plot shows us something new. On each of the three slices, green-yellow is much closer to being the midpoint between yellow and green than yellow-green.
+
+Green-yellow nearly falls on the line between yellow and green when looking at `l`(lightness) and `a` (the green to red spectrum). Yellow-green much further to the blue end of the `b` (yellow to blue) spectrum.
+
+## Conclusion
+
+So what's the difference between yellow-green and green-yellow? 
+
+Green-yellow is a closer to being a true combination of the colors green and yellow. In green-yellow, the 'green' is not merely an adverb[^english], but an equal-ish part of the unique compound color. 
+
+Yellow-green is a yellow tint of a shade of green far removed from true green. Yellow here is simply and adverb of green.
+
+[^english]: Full disclosure, I don't know what I'm talking about when it comes to parts of speech.
+
+
